@@ -1,6 +1,8 @@
 package com.os.os_orchestrator.adapter.in.sqs;
 
 import com.os.os_orchestrator.application.StateMachineUseCase;
+import com.os.os_orchestrator.domain.StateMachineActions;
+import com.os.os_orchestrator.domain.StateMachineEvent;
 import com.os.os_orchestrator.domain.StateMachineStates;
 import io.awspring.cloud.sqs.annotation.SqsListener;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -16,10 +18,12 @@ public class StateMachineListener {
 
     @SqsListener("order-processing-queue")
     public void processOrder(@Payload String order,
-                             @Header("action") StateMachineStates action) {
+                             @Header("action") StateMachineActions action) {
 
-        System.out.println("Processando pedido: " + order + " com ação: " + action);
+        System.out.println("| Processando pedido: " + order + "| Solicitacao de troca de estado: " + action);
 
-        stateMachineUseCase.process(order, action);
+        StateMachineEvent event = new StateMachineEvent(order, action);
+
+        stateMachineUseCase.process(event);
     }
 }
