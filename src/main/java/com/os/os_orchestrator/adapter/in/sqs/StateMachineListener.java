@@ -20,6 +20,6 @@ public class StateMachineListener {
 
         System.out.println("Processando pedido: " + order + " com ação: " + action);
 
-        stateMachineUseCase.processOrder(order, action);
+        stateMachineUseCase.process(order, action);
     }
 }
