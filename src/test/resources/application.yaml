@@ -1,0 +1,25 @@
+# Test context: the two queue/table properties have no production default (so a
+# real deployment fails fast on a missing value), which means the test context has
+# to supply them. Nothing here reaches the network — the SQS container is not
+# started, so `contextLoads` verifies wiring only.
+spring:
+  cloud:
+    aws:
+      region:
+        static: us-east-1
+      credentials:
+        access-key: test
+        secret-key: test
+      sqs:
+        # Off in tests: with the listener running, context refresh calls
+        # GetQueueAttributes against real SQS and the test needs no broker.
+        enabled: false
+
+app:
+  aws:
+    region: us-east-1
+    sqs:
+      order-processing-queue: test-order-processing
+    dynamodb:
+      order-state-table: test-order-state
+      endpoint: http://localhost:4566

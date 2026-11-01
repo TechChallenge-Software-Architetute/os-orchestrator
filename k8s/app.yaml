@@ -1,0 +1,108 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: os-orchestrator
+  namespace: os-orchestrator
+  labels:
+    app: os-orchestrator
+spec:
+  replicas: 1
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 0
+      maxUnavailable: 1
+  selector:
+    matchLabels:
+      app: os-orchestrator
+  template:
+    metadata:
+      labels:
+        app: os-orchestrator
+        tags.datadoghq.com/service: os-orchestrator
+        tags.datadoghq.com/version: "1.0.0"
+      annotations:
+        admission.datadoghq.com/java-lib.version: "latest"
+        ad.datadoghq.com/os-orchestrator.logs: '[{"source":"java","service":"os-orchestrator"}]'
+    spec:
+      containers:
+        - name: os-orchestrator
+          # Overwritten by `kubectl set image` on every deploy; this value only
+          # matters for the initial apply and for local kustomize runs.
+          image: kelvosk/os-orchestrator:v1.0.0
+          imagePullPolicy: Always
+          ports:
+            - name: http
+              containerPort: 8080
+          envFrom:
+            - configMapRef:
+                name: os-orchestrator-config
+            - secretRef:
+                name: os-orchestrator-secret
+          env:
+            - name: DD_AGENT_HOST
+              valueFrom:
+                fieldRef:
+                  fieldPath: status.hostIP
+            - name: DD_ENTITY_ID
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.uid
+            - name: DD_LOGS_INJECTION
+              value: "true"
+          readinessProbe:
+            httpGet:
+              path: /actuator/health/readiness
+              port: http
+            initialDelaySeconds: 60
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 10
+          livenessProbe:
+            httpGet:
+              path: /actuator/health/liveness
+              port: http
+            initialDelaySeconds: 60
+            periodSeconds: 20
+            timeoutSeconds: 5
+            failureThreshold: 10
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+          volumeMounts:
+            # readOnlyRootFilesystem is on, and the JVM needs a writable /tmp
+            # (hsperfdata, temp files).
+            - name: tmp
+              mountPath: /tmp
+          resources:
+            requests:
+              cpu: 200m
+              memory: 384Mi
+            limits:
+              cpu: "1"
+              memory: 1Gi
+      volumes:
+        - name: tmp
+          emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: os-orchestrator
+  namespace: os-orchestrator
+  labels:
+    app: os-orchestrator
+spec:
+  # ClusterIP on purpose, and it must stay that way. The orchestrator has no
+  # business API and no authentication of its own: it is driven only by messages
+  # on its SQS queue, and this port serves nothing but /actuator/health. A
+  # LoadBalancer here would publish an unauthenticated endpoint to the internet.
+  type: ClusterIP
+  selector:
+    app: os-orchestrator
+  ports:
+    - name: http
+      port: 8080
+      targetPort: http

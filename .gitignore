@@ -31,3 +31,21 @@ build/
 
 ### VS Code ###
 .vscode/
+
+### Terraform ###
+# Provider plugin cache — large binaries, re-downloaded by `terraform init`.
+**/.terraform/*
+# Local state must never be committed; CI uses the S3 backend.
+*.tfstate
+*.tfstate.*
+crash.log
+crash.*.log
+# Variable files may hold credentials.
+*.tfvars
+*.tfvars.json
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
+# Saved plans.
+tfplan
