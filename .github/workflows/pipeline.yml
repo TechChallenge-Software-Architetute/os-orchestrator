@@ -228,7 +228,9 @@ jobs:
         uses: docker/login-action@v3
         with:
           username: ${{ secrets.DOCKER_USERNAME }}
-          password: ${{ secrets.DOCKER_PASSWORD }}
+          # Same secret name os-management uses, so the existing org-level
+          # credential is reused instead of needing a second one.
+          password: ${{ secrets.DOCKER_HUB_TOKEN }}
 
       - name: Build and push
         uses: docker/build-push-action@v6
