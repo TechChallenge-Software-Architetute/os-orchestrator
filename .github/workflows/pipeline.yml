@@ -348,16 +348,18 @@ jobs:
       CLUSTER_NAME: os-management-${{ github.ref_name }}
       IMAGE: ${{ secrets.DOCKER_USERNAME }}/os-orchestrator:${{ needs.docker-build-push.outputs.image_tag }}
       # Static keys because the cluster has no IRSA. See k8s/app-secret.yaml.tpl.
-      APP_AWS_ACCESS_KEY_ID: ${{ github.ref_name == 'main' && secrets.APP_AWS_ACCESS_KEY_ID_MAIN || secrets.APP_AWS_ACCESS_KEY_ID_DEVELOP }}
-      APP_AWS_SECRET_ACCESS_KEY: ${{ github.ref_name == 'main' && secrets.APP_AWS_SECRET_ACCESS_KEY_MAIN || secrets.APP_AWS_SECRET_ACCESS_KEY_DEVELOP }}
+      # The pod reuses the pipeline's own AWS credentials (same lab role).
+      APP_AWS_ACCESS_KEY_ID: ${{ github.ref_name == 'main' && secrets.AWS_ACCESS_KEY_ID_MAIN || secrets.AWS_ACCESS_KEY_ID_DEVELOP }}
+      APP_AWS_SECRET_ACCESS_KEY: ${{ github.ref_name == 'main' && secrets.AWS_SECRET_ACCESS_KEY_MAIN || secrets.AWS_SECRET_ACCESS_KEY_DEVELOP }}
+      APP_AWS_SESSION_TOKEN: ${{ github.ref_name != 'main' && secrets.AWS_SESSION_TOKEN_DEVELOP || '' }}
       DD_API_KEY: ${{ secrets.DD_API_KEY }}
     steps:
       - uses: actions/checkout@v4
 
       - name: Validate infrastructure inputs
         run: |
-          test -n "${APP_AWS_ACCESS_KEY_ID}"     || { echo "::error::APP_AWS_ACCESS_KEY_ID_${{ github.ref_name == 'main' && 'MAIN' || 'DEVELOP' }} is missing."; exit 1; }
-          test -n "${APP_AWS_SECRET_ACCESS_KEY}" || { echo "::error::APP_AWS_SECRET_ACCESS_KEY_${{ github.ref_name == 'main' && 'MAIN' || 'DEVELOP' }} is missing."; exit 1; }
+          test -n "${APP_AWS_ACCESS_KEY_ID}"     || { echo "::error::AWS_ACCESS_KEY_ID_${{ github.ref_name == 'main' && 'MAIN' || 'DEVELOP' }} is missing."; exit 1; }
+          test -n "${APP_AWS_SECRET_ACCESS_KEY}" || { echo "::error::AWS_SECRET_ACCESS_KEY_${{ github.ref_name == 'main' && 'MAIN' || 'DEVELOP' }} is missing."; exit 1; }
 
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
@@ -393,8 +395,17 @@ jobs:
               -e "s|\${datadog_env}|${DD_ENV_TAG}|g" \
               k8s/app-configmap.yaml.tpl | kubectl apply -f -
 
+          # Temporary (ASIA...) keys need AWS_SESSION_TOKEN; drop the line when
+          # there is none, since an empty token would make the SDK reject the keys.
+          if [ -n "${APP_AWS_SESSION_TOKEN}" ]; then
+            TOKEN_SED="s|\${aws_session_token}|${APP_AWS_SESSION_TOKEN}|g"
+          else
+            TOKEN_SED="/AWS_SESSION_TOKEN/d"
+          fi
+
           sed -e "s|\${aws_access_key_id}|${APP_AWS_ACCESS_KEY_ID}|g" \
               -e "s|\${aws_secret_access_key}|${APP_AWS_SECRET_ACCESS_KEY}|g" \
+              -e "${TOKEN_SED}" \
               -e "s|\${dd_api_key}|${DD_API_KEY}|g" \
               k8s/app-secret.yaml.tpl | kubectl apply -f -
 
