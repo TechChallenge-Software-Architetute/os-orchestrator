@@ -1,6 +1,7 @@
 package com.os.os_orchestrator.adapter.out.database;
 
 import com.os.os_orchestrator.domain.StateMachineStates;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Repository;
 import software.amazon.awssdk.services.dynamodb.DynamoDbClient;
 import software.amazon.awssdk.services.dynamodb.model.AttributeValue;
@@ -12,12 +13,14 @@ import java.util.Map;
 @Repository
 public class OrderStateRepository {
 
-    private static final String TABLE_NAME = "order-state";
+    private final String tableName;
 
     private final DynamoDbClient dynamoDbClient;
 
-    public OrderStateRepository(DynamoDbClient dynamoDbClient) {
+    public OrderStateRepository(DynamoDbClient dynamoDbClient,
+                                @Value("${app.aws.dynamodb.order-state-table}") String tableName) {
         this.dynamoDbClient = dynamoDbClient;
+        this.tableName = tableName;
     }
 
     public void createState(String order, StateMachineStates state) {
@@ -26,7 +29,7 @@ public class OrderStateRepository {
                 "state", AttributeValue.builder().s(state.name()).build());
 
         dynamoDbClient.putItem(PutItemRequest.builder()
-                .tableName(TABLE_NAME)
+                .tableName(tableName)
                 .item(item)
                 .conditionExpression("attribute_not_exists(orderId)")
                 .build());
@@ -37,7 +40,7 @@ public class OrderStateRepository {
                 "orderId", AttributeValue.builder().s(order).build());
 
         var response = dynamoDbClient.getItem(GetItemRequest.builder()
-                .tableName(TABLE_NAME)
+                .tableName(tableName)
                 .key(key)
                 .build());
 
@@ -56,7 +59,7 @@ public class OrderStateRepository {
                 "state", AttributeValue.builder().s(state.name()).build());
 
         dynamoDbClient.putItem(PutItemRequest.builder()
-                .tableName(TABLE_NAME)
+                .tableName(tableName)
                 .item(item)
                 .build());
     }
