@@ -1,0 +1,427 @@
+name: "os-orchestrator pipeline"
+
+# Independent by design: this pipeline never reads another repository's Terraform
+# state and never waits on another repository's deploy. Every input is either an
+# explicit secret or a name derived from the branch.
+
+on:
+  push:
+    branches:
+      - main
+      - develop
+  pull_request:
+    branches:
+      - develop
+
+permissions:
+  contents: read
+
+jobs:
+
+  # ---------------------------------------------------------------------------
+  # Application checks
+  # ---------------------------------------------------------------------------
+  unit-test:
+    name: "Unit tests"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: corretto
+          java-version: "21"
+          cache: maven
+
+      - name: Run tests
+        run: ./mvnw -B test
+
+  code-analysis:
+    name: "Code analysis"
+    runs-on: ubuntu-latest
+    needs: unit-test
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: corretto
+          java-version: "21"
+          cache: maven
+
+      # Same shape as os-management's code-analysis job, with one fix: os-management
+      # runs `verify -DskipTests`, which produces no jacoco.exec, so its report and
+      # coverage gate are both silently skipped. Running `verify` without the flag
+      # makes the report and the gate real. Costs a second test run; worth it over a
+      # job that checks nothing.
+      #
+      # This still does NOT run a Sonar scan — os-management doesn't either, despite
+      # having the plugin configured. See the pending item in HANDOFF.md.
+      - name: Generate JaCoCo report and run coverage gate
+        run: ./mvnw -B verify
+
+      - name: Upload coverage report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: jacoco-report
+          path: target/site/jacoco/
+          if-no-files-found: ignore
+
+  build:
+    name: "Build"
+    runs-on: ubuntu-latest
+    needs: code-analysis
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: corretto
+          java-version: "21"
+          cache: maven
+
+      - name: Package
+        run: ./mvnw -B -DskipTests clean package
+
+      - name: Upload jar
+        uses: actions/upload-artifact@v4
+        with:
+          name: os-orchestrator-jar
+          path: target/*.jar
+
+  # ---------------------------------------------------------------------------
+  # TODO: descomentar quando houver consumidor para o artefato Maven.
+  #
+  # Hoje o os-orchestrator é entregue como imagem Docker, então publicar no
+  # GitHub Packages a cada push para develop só consome a cota de storage — o
+  # próprio os-management tem um comentário avisando disso. O job abaixo é
+  # idêntico ao `publish` do os-management, incluindo o bump de versão.
+  #
+  # Para ativar:
+  #   1. descomente este job;
+  #   2. descomente o <distributionManagement> no pom.xml;
+  #   3. troque `needs: build` por `needs: publish` no docker-build-push, se
+  #      quiser que a tag da imagem use a versão publicada.
+  #
+  # publish:
+  #   name: "Publish to GitHub Packages"
+  #   runs-on: ubuntu-latest
+  #   needs: build
+  #   # Só em develop/main — evita acumular versões a cada push de feature branch.
+  #   if: github.ref == 'refs/heads/develop' || github.ref == 'refs/heads/main'
+  #   outputs:
+  #     publish_version: ${{ steps.publish-version.outputs.publish_version }}
+  #   permissions:
+  #     contents: write
+  #     packages: write
+  #   steps:
+  #     - uses: actions/checkout@v4
+  #       with:
+  #         fetch-depth: 0
+  #
+  #     - name: Set up JDK 21
+  #       uses: actions/setup-java@v4
+  #       with:
+  #         distribution: corretto
+  #         java-version: "21"
+  #         cache: maven
+  #
+  #     - name: Incrementar versão no pom.xml
+  #       if: github.ref == 'refs/heads/develop'
+  #       run: |
+  #         ./mvnw build-helper:parse-version versions:set \
+  #           -DnewVersion=\${parsedVersion.majorVersion}.\${parsedVersion.minorVersion}.\${parsedVersion.nextIncrementalVersion} \
+  #           -DgenerateBackupPoms=false
+  #
+  #     - name: Preparar versao unica para publicacao
+  #       id: publish-version
+  #       run: |
+  #         RELEASE_VERSION=$(./mvnw help:evaluate -Dexpression=project.version -q -DforceStdout)
+  #         PUBLISH_VERSION="${RELEASE_VERSION}-build.${{ github.run_id }}.${{ github.run_attempt }}"
+  #         ./mvnw versions:set -DnewVersion="$PUBLISH_VERSION" -DgenerateBackupPoms=false
+  #         echo "release_version=$RELEASE_VERSION" >> "$GITHUB_OUTPUT"
+  #         echo "publish_version=$PUBLISH_VERSION" >> "$GITHUB_OUTPUT"
+  #
+  #     - name: Publicar pacote
+  #       run: ./mvnw --batch-mode deploy -DskipTests --settings settings.xml
+  #       env:
+  #         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+  #
+  #     - name: Restaurar versao limpa no pom.xml
+  #       run: |
+  #         ./mvnw versions:set \
+  #           -DnewVersion="${{ steps.publish-version.outputs.release_version }}" \
+  #           -DgenerateBackupPoms=false
+  #
+  #     - name: Fazer commit e enviar atualização de versão
+  #       if: github.ref == 'refs/heads/develop'
+  #       run: |
+  #         git config --global user.name "github-actions[bot]"
+  #         git config --global user.email "github-actions[bot]@users.noreply.github.com"
+  #         git add pom.xml
+  #         git commit -m "Bump versão para próximo build [skip ci]"
+  #         for attempt in 1 2 3; do
+  #           git pull --rebase --autostash origin "${{ github.ref_name }}" \
+  #             && git push origin HEAD:"${{ github.ref_name }}" && break
+  #           echo "push attempt ${attempt} failed; retrying in 5s..."
+  #           sleep 5
+  #         done
+  #       env:
+  #         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  # ---------------------------------------------------------------------------
+  # Terraform preflight (PR → develop, and pushes to develop)
+  # ---------------------------------------------------------------------------
+  preflight:
+    name: "Terraform preflight"
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: infra/terraform
+    if: >
+      (github.event_name == 'pull_request' &&
+       github.event.pull_request.base.ref == 'develop') ||
+      (github.event_name == 'push' &&
+       github.ref == 'refs/heads/develop')
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "1.10.0"
+
+      - name: Terraform fmt & init (no backend)
+        run: |
+          terraform fmt -check -recursive
+          terraform init -backend=false
+
+      - name: Terraform validate (placeholders)
+        run: |
+          cat > ci-placeholder.auto.tfvars <<EOF
+          environment = "develop"
+          EOF
+          terraform validate
+
+  # ---------------------------------------------------------------------------
+  # Docker image
+  # ---------------------------------------------------------------------------
+  docker-build-push:
+    name: "Docker build & push"
+    runs-on: ubuntu-latest
+    needs: build
+    if: github.event_name == 'push' && (github.ref == 'refs/heads/develop' || github.ref == 'refs/heads/main')
+    outputs:
+      image_tag: ${{ steps.tag.outputs.image_tag }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Compute image tag
+        id: tag
+        run: echo "image_tag=${{ github.ref_name }}-${GITHUB_SHA::7}" >> "$GITHUB_OUTPUT"
+
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          # Same secret name os-management uses, so the existing org-level
+          # credential is reused instead of needing a second one.
+          password: ${{ secrets.DOCKER_HUB_TOKEN }}
+
+      - name: Build and push
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          tags: ${{ secrets.DOCKER_USERNAME }}/os-orchestrator:${{ steps.tag.outputs.image_tag }}
+
+  # ---------------------------------------------------------------------------
+  # Terraform deploy — owns only this service's queue, DLQ and state table
+  # ---------------------------------------------------------------------------
+  terraform-deploy:
+    name: "Terraform deploy"
+    runs-on: ubuntu-latest
+    environment: ${{ github.ref_name }}
+    defaults:
+      run:
+        working-directory: infra/terraform
+    if: github.event_name == 'push' && (github.ref == 'refs/heads/develop' || github.ref == 'refs/heads/main')
+    env:
+      TF_VAR_environment: ${{ github.ref_name }}
+      TF_VAR_aws_account_id: ${{ github.ref_name == 'main' && secrets.AWS_ACCOUNT_ID_MAIN || secrets.AWS_ACCOUNT_ID_DEVELOP }}
+      TF_STATE_BUCKET: ${{ github.ref_name == 'main' && secrets.TF_STATE_BUCKET_MAIN || secrets.TF_STATE_BUCKET_DEVELOP }}
+      AWS_REGION: ${{ secrets.AWS_REGION || 'us-east-1' }}
+      TF_VAR_region: ${{ secrets.AWS_REGION || 'us-east-1' }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ github.ref_name == 'main' && secrets.AWS_ACCESS_KEY_ID_MAIN || secrets.AWS_ACCESS_KEY_ID_DEVELOP }}
+          aws-secret-access-key: ${{ github.ref_name == 'main' && secrets.AWS_SECRET_ACCESS_KEY_MAIN || secrets.AWS_SECRET_ACCESS_KEY_DEVELOP }}
+          # develop uses temporary (ASIA...) lab credentials, which require a session token.
+          aws-session-token: ${{ github.ref_name != 'main' && secrets.AWS_SESSION_TOKEN_DEVELOP || '' }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "1.10.0"
+
+      - name: Terraform init
+        shell: bash
+        run: |
+          if [ -z "$TF_STATE_BUCKET" ]; then
+            echo "::error::TF_STATE_BUCKET_${{ github.ref_name == 'main' && 'MAIN' || 'DEVELOP' }} is not configured."
+            exit 1
+          fi
+
+          terraform init \
+            -input=false \
+            -reconfigure \
+            -backend-config="bucket=$TF_STATE_BUCKET" \
+            -backend-config="key=os-orchestrator/${{ github.ref_name }}/terraform.tfstate" \
+            -backend-config="region=$AWS_REGION" \
+            -backend-config="use_lockfile=true"
+
+      - name: Import existing AWS resources when state is empty
+        shell: bash
+        run: |
+          import_if_missing() {
+            local address="$1"
+            local resource_id="$2"
+
+            if ! terraform state show "$address" >/dev/null 2>&1; then
+              terraform import -input=false "$address" "$resource_id"
+            fi
+          }
+
+          env_name="${{ github.ref_name }}"
+
+          for pair in \
+            "aws_sqs_queue.order_processing_dlq:os-orchestrator-${env_name}-order-processing-dlq" \
+            "aws_sqs_queue.order_processing:os-orchestrator-${env_name}-order-processing"
+          do
+            address="${pair%%:*}"
+            queue_name="${pair#*:}"
+            queue_url=$(aws sqs get-queue-url --queue-name "$queue_name" --query 'QueueUrl' --output text 2>/dev/null || true)
+            if [ -n "$queue_url" ] && [ "$queue_url" != "None" ]; then
+              import_if_missing "$address" "$queue_url"
+            fi
+          done
+
+          table_name="os-orchestrator-${env_name}-order-state"
+          table_exists=$(aws dynamodb describe-table --table-name "$table_name" \
+            --query 'Table.TableName' --output text 2>/dev/null || true)
+          if [ -n "$table_exists" ] && [ "$table_exists" != "None" ]; then
+            import_if_missing "aws_dynamodb_table.order_state" "$table_name"
+          fi
+
+      - name: Terraform plan (save tfplan)
+        run: terraform plan -input=false -no-color -out=tfplan
+
+      - name: Upload plan artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: terraform-plan
+          path: infra/terraform/tfplan
+
+      - name: Terraform apply
+        run: terraform apply -input=false -auto-approve tfplan
+
+  # ---------------------------------------------------------------------------
+  # EKS deploy — same cluster as os-management, own namespace
+  # ---------------------------------------------------------------------------
+  deploy-aws:
+    name: "Deploy to EKS"
+    runs-on: ubuntu-latest
+    needs: [docker-build-push, terraform-deploy]
+    environment: ${{ github.ref_name }}
+    if: vars.USE_AWS == 'true' && github.event_name == 'push' && (github.ref == 'refs/heads/develop' || github.ref == 'refs/heads/main')
+    env:
+      AWS_REGION: ${{ secrets.AWS_REGION || 'us-east-1' }}
+      CLUSTER_NAME: os-management-${{ github.ref_name }}
+      IMAGE: ${{ secrets.DOCKER_USERNAME }}/os-orchestrator:${{ needs.docker-build-push.outputs.image_tag }}
+      # Static keys because the cluster has no IRSA. See k8s/app-secret.yaml.tpl.
+      # The pod reuses the pipeline's own AWS credentials (same lab role).
+      APP_AWS_ACCESS_KEY_ID: ${{ github.ref_name == 'main' && secrets.AWS_ACCESS_KEY_ID_MAIN || secrets.AWS_ACCESS_KEY_ID_DEVELOP }}
+      APP_AWS_SECRET_ACCESS_KEY: ${{ github.ref_name == 'main' && secrets.AWS_SECRET_ACCESS_KEY_MAIN || secrets.AWS_SECRET_ACCESS_KEY_DEVELOP }}
+      APP_AWS_SESSION_TOKEN: ${{ github.ref_name != 'main' && secrets.AWS_SESSION_TOKEN_DEVELOP || '' }}
+      DD_API_KEY: ${{ secrets.DD_API_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Validate infrastructure inputs
+        run: |
+          test -n "${APP_AWS_ACCESS_KEY_ID}"     || { echo "::error::AWS_ACCESS_KEY_ID_${{ github.ref_name == 'main' && 'MAIN' || 'DEVELOP' }} is missing."; exit 1; }
+          test -n "${APP_AWS_SECRET_ACCESS_KEY}" || { echo "::error::AWS_SECRET_ACCESS_KEY_${{ github.ref_name == 'main' && 'MAIN' || 'DEVELOP' }} is missing."; exit 1; }
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ github.ref_name == 'main' && secrets.AWS_ACCESS_KEY_ID_MAIN || secrets.AWS_ACCESS_KEY_ID_DEVELOP }}
+          aws-secret-access-key: ${{ github.ref_name == 'main' && secrets.AWS_SECRET_ACCESS_KEY_MAIN || secrets.AWS_SECRET_ACCESS_KEY_DEVELOP }}
+          # develop uses temporary (ASIA...) lab credentials, which require a session token.
+          aws-session-token: ${{ github.ref_name != 'main' && secrets.AWS_SESSION_TOKEN_DEVELOP || '' }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Configure kubectl for the EKS cluster
+        run: |
+          aws eks update-kubeconfig --name "${CLUSTER_NAME}" --region "${AWS_REGION}"
+          kubectl config current-context
+
+      - name: Apply Kubernetes manifests
+        run: |
+          case "${{ github.ref_name }}" in
+            main)    DD_ENV_TAG="production" ;;
+            develop) DD_ENV_TAG="homolog" ;;
+            *)       DD_ENV_TAG="developer" ;;
+          esac
+
+          # Names are derived from the branch, not from another repo's state.
+          ORDER_PROCESSING_QUEUE="os-orchestrator-${{ github.ref_name }}-order-processing"
+          ORDER_STATE_TABLE="os-orchestrator-${{ github.ref_name }}-order-state"
+
+          kubectl apply -f k8s/namespace.yaml
+
+          sed -e "s|\${aws_region}|${AWS_REGION}|g" \
+              -e "s|\${order_processing_queue}|${ORDER_PROCESSING_QUEUE}|g" \
+              -e "s|\${order_state_table}|${ORDER_STATE_TABLE}|g" \
+              -e "s|\${datadog_env}|${DD_ENV_TAG}|g" \
+              k8s/app-configmap.yaml.tpl | kubectl apply -f -
+
+          # Temporary (ASIA...) keys need AWS_SESSION_TOKEN; drop the line when
+          # there is none, since an empty token would make the SDK reject the keys.
+          if [ -n "${APP_AWS_SESSION_TOKEN}" ]; then
+            TOKEN_SED="s|\${aws_session_token}|${APP_AWS_SESSION_TOKEN}|g"
+          else
+            TOKEN_SED="/AWS_SESSION_TOKEN/d"
+          fi
+
+          sed -e "s|\${aws_access_key_id}|${APP_AWS_ACCESS_KEY_ID}|g" \
+              -e "s|\${aws_secret_access_key}|${APP_AWS_SECRET_ACCESS_KEY}|g" \
+              -e "${TOKEN_SED}" \
+              -e "s|\${dd_api_key}|${DD_API_KEY}|g" \
+              k8s/app-secret.yaml.tpl | kubectl apply -f -
+
+          kubectl apply -f k8s/app.yaml
+
+          kubectl patch deployment os-orchestrator -n os-orchestrator --type merge \
+            -p "{\"spec\":{\"template\":{\"metadata\":{\"labels\":{\"tags.datadoghq.com/env\":\"${DD_ENV_TAG}\"}}}}}"
+
+      - name: Update Deployment image
+        run: |
+          kubectl set image deployment/os-orchestrator os-orchestrator="${IMAGE}" -n os-orchestrator
+          kubectl rollout status deployment/os-orchestrator -n os-orchestrator --timeout=300s || {
+            echo "===== ROLLOUT FAILED — DIAGNOSTICS ====="
+            kubectl get pods -n os-orchestrator -o wide
+            kubectl describe pod -n os-orchestrator -l app=os-orchestrator
+            kubectl logs -n os-orchestrator -l app=os-orchestrator --tail=120 --all-containers=true || true
+            kubectl get events -n os-orchestrator --sort-by=.lastTimestamp | tail -40
+            exit 1
+          }
