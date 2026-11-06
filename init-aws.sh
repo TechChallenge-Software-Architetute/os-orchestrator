@@ -2,8 +2,14 @@
 
 set -e
 
-awslocal sqs create-queue \
-  --queue-name order-processing-queue
+for queue in \
+  order-processing-queue \
+  os-management-queue \
+  os-payment-queue \
+  error-queue
+do
+  awslocal sqs create-queue --queue-name "$queue"
+done
 
 awslocal dynamodb create-table \
   --table-name order-state \

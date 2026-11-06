@@ -3,9 +3,7 @@ services:
     image: localstack/localstack:4.8.1
     container_name: os-localstack
     ports:
-      # Bound to loopback: LocalStack accepts any credentials, so publishing it on
-      # all interfaces would hand anyone on the same network a writable AWS mock.
-      - "127.0.0.1:4566:4566"
+      - "4566:4566"
     environment:
       SERVICES: sqs,dynamodb
       AWS_DEFAULT_REGION: us-east-1

@@ -1,27 +1,19 @@
-# Local development against LocalStack (docker-compose.yml + init-aws.sh).
-#
-# Activate explicitly:  SPRING_PROFILES_ACTIVE=local ./mvnw spring-boot:run
-#
-# This is opt-in rather than the default so that a missing environment variable in
-# a real deployment fails fast instead of quietly pointing the app at localhost
-# with throwaway credentials.
 spring:
+  application:
+    name: os-orchestrator
   cloud:
     aws:
-      endpoint: http://localhost:4566
+      endpoint: ${AWS_ENDPOINT:http://localhost:4566}
       region:
-        static: us-east-1
+        static: ${AWS_REGION:us-east-1}
       credentials:
-        # Dummy values accepted by LocalStack. They are not real credentials and
-        # only ever apply under this profile.
-        access-key: test
-        secret-key: test
-
-app:
-  aws:
-    region: us-east-1
-    sqs:
-      order-processing-queue: order-processing-queue
-    dynamodb:
-      order-state-table: order-state
-      endpoint: http://localhost:4566
+        access-key: ${AWS_ACCESS_KEY_ID:test}
+        secret-key: ${AWS_SECRET_ACCESS_KEY:test}
+      sqs:
+        listener:
+          max-concurrent-messages: 10
+          max-messages-per-poll: 10
+          poll-timeout: 20s
+      dynamodb:
+        order-state-table: order-state
+        endpoint: http://localhost:4566
