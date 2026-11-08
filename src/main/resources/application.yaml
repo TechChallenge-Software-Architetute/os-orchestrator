@@ -1,4 +1,6 @@
 spring:
+  profiles:
+    active: ${SPRING_PROFILES_ACTIVE:local} #local, default
   application:
     name: os-orchestrator
   cloud:
@@ -22,12 +24,12 @@ app:
       # Inbound saga queue: os-orchestrator-<env>-order-processing.
       # No default — a missing value must fail startup rather than silently
       # listen on the wrong queue.
-      order-processing-queue: ${ORDER_PROCESSING_QUEUE}
+      order-processing-queue: ${ORDER_PROCESSING_QUEUE:order-processing-queue}
     dynamodb:
       # Saga state table: os-orchestrator-<env>-order-state.
-      order-state-table: ${ORDER_STATE_TABLE}
+      order-state-table: ${ORDER_STATE_TABLE:order-state}
       # Blank = use the real regional endpoint.
-      endpoint: ${DYNAMODB_ENDPOINT:}
+      endpoint: ${DYNAMODB_ENDPOINT:http://localhost:4566}
 
 management:
   endpoints:
