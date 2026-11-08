@@ -1,0 +1,42 @@
+spring:
+  profiles:
+    active: ${SPRING_PROFILES_ACTIVE:local} #local, default
+  application:
+    name: os-orchestrator
+  cloud:
+    aws:
+      region:
+        static: ${AWS_REGION:us-east-1}
+      # No `endpoint` and no `credentials` here on purpose. Credentials come from
+      # the default provider chain (pod environment, instance profile, or IRSA),
+      # and the endpoint is the real regional one. LocalStack lives in the `local`
+      # profile — see application-local.yaml.
+      sqs:
+        listener:
+          max-concurrent-messages: 10
+          max-messages-per-poll: 10
+          poll-timeout: 20s
+
+app:
+  aws:
+    region: ${AWS_REGION:us-east-1}
+    sqs:
+      # Inbound saga queue: os-orchestrator-<env>-order-processing.
+      # No default — a missing value must fail startup rather than silently
+      # listen on the wrong queue.
+      order-processing-queue: ${ORDER_PROCESSING_QUEUE:order-processing-queue}
+    dynamodb:
+      # Saga state table: os-orchestrator-<env>-order-state.
+      order-state-table: ${ORDER_STATE_TABLE:order-state}
+      # Blank = use the real regional endpoint.
+      endpoint: ${DYNAMODB_ENDPOINT:http://localhost:4566}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  endpoint:
+    health:
+      probes:
+        enabled: true

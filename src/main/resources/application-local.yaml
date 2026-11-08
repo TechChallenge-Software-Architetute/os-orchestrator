@@ -1,0 +1,19 @@
+spring:
+  application:
+    name: os-orchestrator
+  cloud:
+    aws:
+      endpoint: ${AWS_ENDPOINT:http://localhost:4566}
+      region:
+        static: ${AWS_REGION:us-east-1}
+      credentials:
+        access-key: ${AWS_ACCESS_KEY_ID:test}
+        secret-key: ${AWS_SECRET_ACCESS_KEY:test}
+      sqs:
+        listener:
+          max-concurrent-messages: 10
+          max-messages-per-poll: 10
+          poll-timeout: 20s
+      dynamodb:
+        order-state-table: order-state
+        endpoint: http://localhost:4566
