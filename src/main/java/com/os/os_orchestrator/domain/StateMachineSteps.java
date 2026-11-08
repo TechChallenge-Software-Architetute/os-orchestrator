@@ -35,10 +35,10 @@ public enum StateMachineSteps {
     ),
 
     NEGAR_SERVICO_STEP(
-            StateMachineActions.EXECUTAR_SERVICO,
+            StateMachineActions.NEGAR_SERVICO,
             ORCAMENTO_GERADO,
             NEGAR_SERVICO,
-            StateMachineActions.NEGAR_SERVICO
+            StateMachineActions.NEGAR_ESTOQUE
     ),
 
     ATUALIZAR_ESTOQUE_STEP(
@@ -49,10 +49,10 @@ public enum StateMachineSteps {
     ),
 
     NEGAR_ESTOQUE_STEP(
-            StateMachineActions.ATUALIZAR_ESTOQUE,
-            ORCAMENTO_GERADO,
+            StateMachineActions.NEGAR_ESTOQUE,
+            NEGAR_SERVICO,
             NEGAR_ESTOQUE,
-            StateMachineActions.NEGAR_ESTOQUE
+            null
     ),
 
     ERRO_STEP(
