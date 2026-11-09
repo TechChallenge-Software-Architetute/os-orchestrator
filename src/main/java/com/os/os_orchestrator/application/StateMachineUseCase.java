@@ -1,6 +1,8 @@
 package com.os.os_orchestrator.application;
 
 import com.os.os_orchestrator.adapter.out.database.OrderStateRepository;
+import com.os.os_orchestrator.adapter.out.database.OrderStateRepository.OrderState;
+import com.os.os_orchestrator.adapter.out.database.OrderNotFoundException;
 import com.os.os_orchestrator.adapter.out.sqs.ActionSenderService;
 import com.os.os_orchestrator.domain.StateMachineEvent;
 import com.os.os_orchestrator.domain.StateMachineStates;
@@ -23,19 +25,19 @@ public class StateMachineUseCase {
         log.info("Evento recebido | Event: {}", event);
 
         StateMachineStates actualState;
+        StateMachineEvent currentEvent = event;
 
         try {
-            actualState = orderStateRepository.findState(event.order());
+            OrderState persisted = orderStateRepository.findState(event.order());
+            actualState = persisted.state();
+            currentEvent = new StateMachineEvent(event.order(), event.action(), persisted.correlationId(), persisted.amount());
 
             log.info("Ordem encontrada | pedido={} | estado={}",
                     event.order(), actualState);
-        } catch (IllegalStateException exception) {
+        } catch (OrderNotFoundException exception) {
             actualState = StateMachineStates.CRIAR_OS;
 
-            orderStateRepository.createState(
-                    event.order(),
-                    actualState
-            );
+            orderStateRepository.createState(event, actualState);
 
             log.info("Ordem criada | pedido={} | estado inicial={}",
                     event.order(), actualState);
@@ -51,10 +53,7 @@ public class StateMachineUseCase {
                         ? StateMachineStates.ERRO
                         : step.getNext();
 
-        orderStateRepository.updateState(
-                event.order(),
-                nextState
-        );
+        orderStateRepository.updateState(currentEvent, nextState);
 
         log.info(
                 "Estado atualizado | pedido={} | estadoAtual={} | acao={} | proximoEstado={}",
@@ -68,8 +67,8 @@ public class StateMachineUseCase {
             StateMachineEvent nextEvent = new StateMachineEvent(
                     event.order(),
                     step.getNextAction(),
-                    event.correlationId(),
-                    event.amount()
+                    currentEvent.correlationId(),
+                    currentEvent.amount()
             );
 
             actionSenderService.sendAction(event.order(), nextEvent);

@@ -37,6 +37,9 @@ jobs:
       - name: Run tests
         run: ./mvnw -B test
 
+      - name: Test order-state migration utility
+        run: python3 -m unittest discover -s scripts -p 'test_*.py'
+
   code-analysis:
     name: "Code analysis"
     runs-on: ubuntu-latest
@@ -369,6 +372,16 @@ jobs:
           # develop uses temporary (ASIA...) lab credentials, which require a session token.
           aws-session-token: ${{ github.ref_name != 'main' && secrets.AWS_SESSION_TOKEN_DEVELOP || '' }}
           aws-region: ${{ env.AWS_REGION }}
+
+      - name: Migrate order metadata before application rollout
+        env:
+          ORDER_STATE_MIGRATION_JSON: ${{ secrets.ORDER_STATE_MIGRATION_JSON || '{}' }}
+        run: |
+          mapping_file="$RUNNER_TEMP/order-state-migration.json"
+          printf '%s' "$ORDER_STATE_MIGRATION_JSON" > "$mapping_file"
+          python3 scripts/migrate_order_state.py \
+            --table-name "os-orchestrator-${{ github.ref_name }}-order-state" \
+            --mapping-file "$mapping_file"
 
       - name: Configure kubectl for the EKS cluster
         run: |

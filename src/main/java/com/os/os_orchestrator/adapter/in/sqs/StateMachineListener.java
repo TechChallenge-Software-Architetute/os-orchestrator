@@ -27,14 +27,22 @@ public class StateMachineListener {
     @SqsListener("order-processing-queue")
     public void processOrder(@Payload StateMachineEvent event) {
 
+        if (event == null || event.order() == null || event.order().isBlank()
+                || event.action() == null || event.correlationId() == null || event.correlationId().isBlank()
+                || event.amount() == null) {
+            throw new IllegalArgumentException("Mensagem inválida: order, action, correlationId e amount válidos são obrigatórios");
+        }
+
         log.info("Evento recebido. {}", event);
         MDC.put("order", event.order());
         if (event.correlationId() != null) MDC.put("correlationId", event.correlationId());
         log.info("Inicio do processamento do pedido: {} | Solicitacao de troca de estado: {}", event.order(), event.action());
 
-        stateMachineUseCase.process(event);
-
-        log.info("Fim do processamento do pedido: {} | Solicitacao de troca de estado: {}", event.order(), event.action());
-        MDC.clear();
+        try {
+            stateMachineUseCase.process(event);
+            log.info("Fim do processamento do pedido: {} | Solicitacao de troca de estado: {}", event.order(), event.action());
+        } finally {
+            MDC.clear();
+        }
     }
 }

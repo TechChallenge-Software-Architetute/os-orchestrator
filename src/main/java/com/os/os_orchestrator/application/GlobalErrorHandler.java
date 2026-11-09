@@ -26,10 +26,7 @@ public class GlobalErrorHandler {
         );
 
         try {
-            orderStateRepository.updateState(
-                    event.order(),
-                    StateMachineStates.ERRO
-            );
+            orderStateRepository.updateState(event, StateMachineStates.ERRO);
 
             log.info(
                     "Pedido atualizado para ERRO | pedido={}",

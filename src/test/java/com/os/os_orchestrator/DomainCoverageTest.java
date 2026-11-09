@@ -2,6 +2,7 @@ package com.os.os_orchestrator;
 
 import com.os.os_orchestrator.domain.*;
 import org.junit.jupiter.api.Test;
+import java.math.BigDecimal;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -21,11 +22,13 @@ class DomainCoverageTest {
 
     @Test
     void eventHasRecordValueSemantics() {
-        StateMachineEvent event = new StateMachineEvent("order", StateMachineActions.CRIAR_OS);
+        StateMachineEvent event = new StateMachineEvent("order", StateMachineActions.CRIAR_OS, "corr", new BigDecimal("50.30"));
         assertEquals("order", event.order());
         assertEquals(StateMachineActions.CRIAR_OS, event.action());
-        assertEquals(event, new StateMachineEvent("order", StateMachineActions.CRIAR_OS));
-        assertNotEquals(event, new StateMachineEvent("other", StateMachineActions.CRIAR_OS));
+        assertEquals("corr", event.correlationId());
+        assertEquals(new BigDecimal("50.30"), event.amount());
+        assertEquals(event, new StateMachineEvent("order", StateMachineActions.CRIAR_OS, "corr", new BigDecimal("50.30")));
+        assertNotEquals(event, new StateMachineEvent("other", StateMachineActions.CRIAR_OS, "corr", new BigDecimal("50.30")));
         assertTrue(event.toString().contains("order"));
     }
 

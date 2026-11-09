@@ -6,7 +6,4 @@ public record StateMachineEvent(
         String correlationId,
         java.math.BigDecimal amount
 ) {
-    public StateMachineEvent(String order, StateMachineActions action) {
-        this(order, action, null, null);
-    }
 }

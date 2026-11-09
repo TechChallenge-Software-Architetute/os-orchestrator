@@ -33,6 +33,32 @@ deploy):
 | `ORDER_STATE_TABLE` | `os-orchestrator-develop-order-state` |
 | `AWS_REGION` | `us-east-1` |
 
+### Metadados obrigatórios da saga
+
+Cada item de `order-state` mantém `orderId`, `state`, `correlationId` e `amount`.
+O DynamoDB não exige declarar atributos que não sejam chaves no Terraform, então
+a tabela existente é atualizada in-place, sem recriação.
+
+Antes do rollout da aplicação, a pipeline percorre a tabela e migra itens sem os
+dois metadados. Para ordens existentes, configure o secret do GitHub Actions
+`ORDER_STATE_MIGRATION_JSON` com um objeto JSON indexado por `orderId`, usando os
+valores da fonte de dados confiável:
+
+```json
+{
+  "order-123": {
+    "correlationId": "123",
+    "amount": "50.30"
+  }
+}
+```
+
+A migração valida todos os itens antes de gravar. Se faltar um pedido no mapa,
+ou se os valores divergirem de atributos já persistidos, ela falha e impede o
+rollout; nenhum item é alterado nessa validação. Itens completos são ignorados e
+as atualizações usam `if_not_exists`, podendo ser repetidas com segurança. Para
+tabela vazia ou já migrada, o secret pode conter `{}`.
+
 
 ---
 

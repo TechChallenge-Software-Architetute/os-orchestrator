@@ -1,6 +1,7 @@
 package bdd.steps;
 
 import com.os.os_orchestrator.adapter.out.database.OrderStateRepository;
+import com.os.os_orchestrator.adapter.out.database.OrderNotFoundException;
 import com.os.os_orchestrator.adapter.out.sqs.ActionSenderService;
 import com.os.os_orchestrator.application.StateMachineUseCase;
 import com.os.os_orchestrator.domain.StateMachineActions;
@@ -11,6 +12,7 @@ import io.cucumber.java.Before;
 import io.cucumber.java.pt.Dado;
 import io.cucumber.java.pt.Então;
 import io.cucumber.java.pt.Quando;
+import java.math.BigDecimal;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.Mockito.*;
@@ -18,6 +20,8 @@ import static org.mockito.Mockito.*;
 public class OrchestratorSteps {
 
     private static final String ORDER_ID = "order-bdd-123";
+    private static final String CORRELATION_ID = "corr-bdd-123";
+    private static final BigDecimal AMOUNT = new BigDecimal("50.30");
 
     private OrderStateRepository orderStateRepository;
     private ActionSenderService actionSenderService;
@@ -98,27 +102,27 @@ public class OrchestratorSteps {
         );
 
         verify(orderStateRepository).createState(
-                ORDER_ID,
+                event(StateMachineActions.CRIAR_OS),
                 StateMachineStates.CRIAR_OS
         );
 
         verify(orderStateRepository).updateState(
-                ORDER_ID,
+                event(StateMachineActions.CRIAR_OS),
                 StateMachineStates.OS_CRIADA
         );
 
         verify(orderStateRepository).updateState(
-                ORDER_ID,
+                event(StateMachineActions.GERAR_ORCAMENTO),
                 StateMachineStates.ORCAMENTO_GERADO
         );
 
         verify(orderStateRepository).updateState(
-                ORDER_ID,
+                event(StateMachineActions.EXECUTAR_SERVICO),
                 StateMachineStates.EXECUTAR_SERVICO
         );
 
         verify(orderStateRepository).updateState(
-                ORDER_ID,
+                event(StateMachineActions.ATUALIZAR_ESTOQUE),
                 StateMachineStates.ATUALIZAR_ESTOQUE
         );
 
@@ -148,22 +152,22 @@ public class OrchestratorSteps {
         );
 
         verify(orderStateRepository).createState(
-                ORDER_ID,
+                event(StateMachineActions.CRIAR_OS),
                 StateMachineStates.CRIAR_OS
         );
 
         verify(orderStateRepository).updateState(
-                ORDER_ID,
+                event(StateMachineActions.CRIAR_OS),
                 StateMachineStates.OS_CRIADA
         );
 
         verify(orderStateRepository).updateState(
-                ORDER_ID,
+                event(StateMachineActions.GERAR_ORCAMENTO),
                 StateMachineStates.ORCAMENTO_GERADO
         );
 
         verify(orderStateRepository).updateState(
-                ORDER_ID,
+                event(StateMachineActions.NEGAR_SERVICO),
                 StateMachineStates.NEGAR_SERVICO
         );
 
@@ -187,24 +191,22 @@ public class OrchestratorSteps {
 
     private void process(StateMachineActions action) {
         stateMachineUseCase.process(
-                new StateMachineEvent(ORDER_ID, action)
+                event(action)
         );
     }
 
     private StateMachineEvent event(StateMachineActions action) {
-        return new StateMachineEvent(ORDER_ID, action);
+        return new StateMachineEvent(ORDER_ID, action, CORRELATION_ID, AMOUNT);
     }
 
     private void configureRepositoryState() {
         when(orderStateRepository.findState(ORDER_ID))
                 .thenAnswer(invocation -> {
                     if (!orderExists) {
-                        throw new IllegalStateException(
-                                "Pedido não encontrado"
-                        );
+                        throw new OrderNotFoundException(ORDER_ID);
                     }
 
-                    return currentState;
+                    return new OrderStateRepository.OrderState(currentState, CORRELATION_ID, AMOUNT);
                 });
 
         doAnswer(invocation -> {
@@ -212,13 +214,13 @@ public class OrchestratorSteps {
             currentState = invocation.getArgument(1);
             return null;
         }).when(orderStateRepository)
-                .createState(anyString(), any(StateMachineStates.class));
+                .createState(any(StateMachineEvent.class), any(StateMachineStates.class));
 
         doAnswer(invocation -> {
             currentState = invocation.getArgument(1);
             return null;
         }).when(orderStateRepository)
-                .updateState(anyString(), any(StateMachineStates.class));
+                .updateState(any(StateMachineEvent.class), any(StateMachineStates.class));
     }
 
     private void injectDependencies() {
