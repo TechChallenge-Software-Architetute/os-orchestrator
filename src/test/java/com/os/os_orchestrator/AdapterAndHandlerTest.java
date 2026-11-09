@@ -9,30 +9,32 @@ import com.os.os_orchestrator.domain.*;
 import io.awspring.cloud.sqs.operations.SqsTemplate;
 import org.junit.jupiter.api.Test;
 import org.slf4j.MDC;
-import org.springframework.messaging.Message;
 import software.amazon.awssdk.services.dynamodb.DynamoDbClient;
 import software.amazon.awssdk.services.dynamodb.model.*;
 
 import java.util.Map;
+import java.math.BigDecimal;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
 class AdapterAndHandlerTest {
-    @Test void listenerBuildsEventAndDelegates() {
+    @Test void listenerReceivesCompleteJsonEventAndDelegates() {
         StateMachineUseCase useCase = mock(StateMachineUseCase.class);
-        new StateMachineListener(useCase).processOrder("o-1", StateMachineActions.CRIAR_OS);
-        verify(useCase).process(new StateMachineEvent("o-1", StateMachineActions.CRIAR_OS));
+        StateMachineEvent event = new StateMachineEvent("order-123", StateMachineActions.CRIAR_OS,
+                "123", new BigDecimal("50.30"));
+        new StateMachineListener(useCase).processOrder(event);
+        verify(useCase).process(event);
         assertNull(MDC.get("order"));
+        assertNull(MDC.get("correlationId"));
     }
 
     @Test void senderPublishesOrderAndActionHeaderToActionQueue() {
         SqsTemplate sqs = mock(SqsTemplate.class);
-        StateMachineEvent event = new StateMachineEvent("o-2", StateMachineActions.GERAR_ORCAMENTO);
+        StateMachineEvent event = new StateMachineEvent("o-2", StateMachineActions.GERAR_ORCAMENTO, "corr-2", new BigDecimal("50.30"));
         new ActionSenderServiceImpl(sqs).sendAction("o-2", event);
-        verify(sqs).send(eq("os-payment-queue"), argThat((Message<?> m) ->
-                "o-2".equals(m.getPayload()) && "GERAR_ORCAMENTO".equals(m.getHeaders().get("action"))));
+        verify(sqs).send("os-payment-queue", event);
     }
 
     @Test void repositoryCreatesReadsAndUpdatesState() {

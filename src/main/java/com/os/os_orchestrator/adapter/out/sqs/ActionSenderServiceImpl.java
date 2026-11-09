@@ -2,7 +2,6 @@ package com.os.os_orchestrator.adapter.out.sqs;
 
 import com.os.os_orchestrator.domain.StateMachineEvent;
 import io.awspring.cloud.sqs.operations.SqsTemplate;
-import org.springframework.messaging.support.MessageBuilder;
 import org.springframework.stereotype.Service;
 
 @Service
@@ -17,9 +16,7 @@ public class ActionSenderServiceImpl implements ActionSenderService {
     public void sendAction(String order, StateMachineEvent event) {
         sqsTemplate.send(
                 event.action().getQueueName(),
-                MessageBuilder.withPayload(order)
-                        .setHeader("action", event.action().name())
-                        .build()
+                event
         );
     }
 }

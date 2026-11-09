@@ -13,6 +13,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import static org.mockito.Mockito.*;
+import java.math.BigDecimal;
 
 @ExtendWith(MockitoExtension.class)
 class StateMachineUseCaseTest {
@@ -62,9 +63,7 @@ class StateMachineUseCaseTest {
     void shouldFollowFlowWhenOrderAlreadyExists() {
         String order = "order-123";
         StateMachineEvent event = new StateMachineEvent(
-                order,
-                StateMachineActions.GERAR_ORCAMENTO
-        );
+                order, StateMachineActions.GERAR_ORCAMENTO, "corr-456", new BigDecimal("50.30"));
 
         when(orderStateRepository.findState(order))
                 .thenReturn(StateMachineStates.OS_CRIADA);
@@ -81,10 +80,7 @@ class StateMachineUseCaseTest {
 
         verify(actionSenderService).sendAction(
                 order,
-                new StateMachineEvent(
-                        order,
-                        StateMachineActions.EXECUTAR_SERVICO
-                )
+                new StateMachineEvent(order, StateMachineActions.EXECUTAR_SERVICO, "corr-456", new BigDecimal("50.30"))
         );
     }
 

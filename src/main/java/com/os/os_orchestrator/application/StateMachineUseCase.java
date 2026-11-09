@@ -67,7 +67,9 @@ public class StateMachineUseCase {
         if (step.getNextAction() != null) {
             StateMachineEvent nextEvent = new StateMachineEvent(
                     event.order(),
-                    step.getNextAction()
+                    step.getNextAction(),
+                    event.correlationId(),
+                    event.amount()
             );
 
             actionSenderService.sendAction(event.order(), nextEvent);

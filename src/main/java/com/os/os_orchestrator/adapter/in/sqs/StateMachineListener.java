@@ -1,16 +1,13 @@
 package com.os.os_orchestrator.adapter.in.sqs;
 
 import com.os.os_orchestrator.application.StateMachineUseCase;
-import com.os.os_orchestrator.domain.StateMachineActions;
 import com.os.os_orchestrator.domain.StateMachineEvent;
 import io.awspring.cloud.sqs.annotation.SqsListener;
 import lombok.extern.slf4j.Slf4j;
 import org.slf4j.MDC;
-import org.springframework.messaging.handler.annotation.Header;
 import org.springframework.messaging.handler.annotation.Payload;
 import org.springframework.stereotype.Component;
 
-import java.util.UUID;
 
 @Slf4j
 @Component
@@ -28,19 +25,16 @@ public class StateMachineListener {
      * local development keeps using the LocalStack queue from init-aws.sh.
      */
     @SqsListener("order-processing-queue")
-    public void processOrder(@Payload String order,
-                             @Header("action") StateMachineActions action) {
+    public void processOrder(@Payload StateMachineEvent event) {
 
-        log.info("Evento recebido. {} - {}", order, action);
-        MDC.put("order", order);
-        MDC.put("correlationId", UUID.randomUUID().toString());
-        log.info("Inicio do processamento do pedido: {} | Solicitacao de troca de estado: {}", order, action);
-
-        StateMachineEvent event = new StateMachineEvent(order, action);
+        log.info("Evento recebido. {}", event);
+        MDC.put("order", event.order());
+        if (event.correlationId() != null) MDC.put("correlationId", event.correlationId());
+        log.info("Inicio do processamento do pedido: {} | Solicitacao de troca de estado: {}", event.order(), event.action());
 
         stateMachineUseCase.process(event);
 
-        log.info("Fim do processamento do pedido: {} | Solicitacao de troca de estado: {}", order, action);
+        log.info("Fim do processamento do pedido: {} | Solicitacao de troca de estado: {}", event.order(), event.action());
         MDC.clear();
     }
 }
