@@ -99,14 +99,27 @@ Os-management -> (CRIAR_OS)  -> orchestrator -> (GERAR_ORCAMENTO) -> payment -> 
 
 ### Testes
 
-1. Criar a OS do pedido no os-oschestrator:
-aws --endpoint-url http://localhost:4566 sqs send-message --queue-url http://localhost:4566/000000000000/order-processing-queue --message-body "order-4444" --message-attributes '{"action":{"DataType":"String","StringValue":"CRIAR_OS"}}'
+O `order-processing-queue` recebe o evento completo como JSON no corpo da mensagem.
+`action` deve ser um valor de `StateMachineActions`; `order`, `correlationId` e
+`amount` também devem ser informados. `amount` é um valor decimal representado
+como string no JSON.
 
-2. Gerar o orçamento do pedido no os-payment:
-aws --endpoint-url http://localhost:4566 sqs send-message --queue-url http://localhost:4566/000000000000/order-processing-queue --message-body "order-4444" --message-attributes '{"action":{"DataType":"String","StringValue":"GERAR_ORCAMENTO"}}'
+Exemplo de corpo:
 
-3. Executar o serviço no os-management:
-aws --endpoint-url http://localhost:4566 sqs send-message --queue-url http://localhost:4566/000000000000/order-processing-queue --message-body "order-4444" --message-attributes '{"action":{"DataType":"String","StringValue":"EXECUTAR_SERVICO"}}'
+```json
+{
+  "action": "CRIAR_OS",
+  "order": "order-123",
+  "correlationId": "123",
+  "amount": "50.30"
+}
+```
 
-4. Atualizar o estoque no os-management:
-aws --endpoint-url http://localhost:4566 sqs send-message --queue-url http://localhost:4566/000000000000/order-processing-queue --message-body "order-4444" --message-attributes '{"action":{"DataType":"String","StringValue":"ATUALIZAR_ESTOQUE"}}'
+Envio para o LocalStack (repita com a próxima ação do fluxo quando necessário;
+para este contrato, não use `--message-attributes`):
+
+```bash
+aws --endpoint-url http://localhost:4566 sqs send-message \
+  --queue-url http://localhost:4566/000000000000/order-processing-queue \
+  --message-body '{"action":"CRIAR_OS","order":"order-123","correlationId":"123","amount":"50.30"}'
+```
