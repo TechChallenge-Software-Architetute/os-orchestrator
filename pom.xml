@@ -36,7 +36,7 @@
 			gate seria removido em vez de cumprido. Suba este valor conforme os
 			testes entrarem — é a única mudança necessária para ativar o gate.
 		-->
-		<jacoco.min.coverage>0.00</jacoco.min.coverage>
+		<jacoco.min.coverage>0.90</jacoco.min.coverage>
 		<sonar.maven.plugin.version>5.5.0.6356</sonar.maven.plugin.version>
 		<sonar.projectKey>os-orchestrator</sonar.projectKey>
 		<sonar.projectName>os-orchestrator</sonar.projectName>
