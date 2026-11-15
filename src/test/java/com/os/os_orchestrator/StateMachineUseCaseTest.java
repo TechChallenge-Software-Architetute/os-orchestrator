@@ -12,7 +12,6 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
@@ -28,7 +27,7 @@ class StateMachineUseCaseTest {
     private StateMachineUseCase stateMachineUseCase;
 
     @Test
-    void shouldCreateOrderAndSendNextActionWhenOrderDoesNotExist() {
+    void shouldCreateOrderWithoutStartingPaymentBeforeBudgetExists() {
         String order = "order-123";
         StateMachineEvent event = new StateMachineEvent(
                 order,
@@ -50,13 +49,7 @@ class StateMachineUseCaseTest {
                 StateMachineStates.OS_CRIADA
         );
 
-        verify(actionSenderService).sendAction(
-                order,
-                new StateMachineEvent(
-                        order,
-                        StateMachineActions.GERAR_ORCAMENTO
-                )
-        );
+        verifyNoInteractions(actionSenderService);
     }
 
     @Test
@@ -64,7 +57,7 @@ class StateMachineUseCaseTest {
         String order = "order-123";
         StateMachineEvent event = new StateMachineEvent(
                 order,
-                StateMachineActions.GERAR_ORCAMENTO
+                StateMachineActions.ORCAMENTO_DISPONIVEL
         );
 
         when(orderStateRepository.findState(order))
@@ -77,20 +70,70 @@ class StateMachineUseCaseTest {
 
         verify(orderStateRepository).updateState(
                 order,
-                StateMachineStates.ORCAMENTO_GERADO
+                StateMachineStates.GERAR_ORCAMENTO
         );
 
         verify(actionSenderService).sendAction(
                 order,
                 new StateMachineEvent(
                         order,
-                        StateMachineActions.EXECUTAR_SERVICO
+                        StateMachineActions.GERAR_ORCAMENTO
                 )
         );
     }
 
     @Test
-    void shouldSendUpdateInventoryAsNextAction() {
+    void paymentApprovalAloneMustWaitForCustomerApproval() {
+        String order = "order-123";
+        StateMachineEvent event = new StateMachineEvent(
+                order,
+                StateMachineActions.PAGAMENTO_APROVADO
+        );
+
+        when(orderStateRepository.findState(order))
+                .thenReturn(StateMachineStates.ORCAMENTO_GERADO);
+
+        stateMachineUseCase.process(event);
+
+        verify(orderStateRepository).updateState(
+                order,
+                StateMachineStates.PAGAMENTO_APROVADO
+        );
+
+        verifyNoInteractions(actionSenderService);
+    }
+
+
+    @Test
+    void customerApprovalAfterPaymentApprovalStartsExecution() {
+        String order = "order-123";
+        StateMachineEvent event = new StateMachineEvent(order, StateMachineActions.ORCAMENTO_APROVADO);
+
+        when(orderStateRepository.findState(order)).thenReturn(StateMachineStates.PAGAMENTO_APROVADO);
+
+        stateMachineUseCase.process(event);
+
+        verify(orderStateRepository).updateState(order, StateMachineStates.AGUARDANDO_EXECUCAO);
+        verify(actionSenderService).sendAction(
+                order, new StateMachineEvent(order, StateMachineActions.EXECUTAR_SERVICO));
+    }
+
+    @Test
+    void paymentApprovalAfterCustomerApprovalStartsExecution() {
+        String order = "order-123";
+        StateMachineEvent event = new StateMachineEvent(order, StateMachineActions.PAGAMENTO_APROVADO);
+
+        when(orderStateRepository.findState(order)).thenReturn(StateMachineStates.ORCAMENTO_APROVADO);
+
+        stateMachineUseCase.process(event);
+
+        verify(orderStateRepository).updateState(order, StateMachineStates.AGUARDANDO_EXECUCAO);
+        verify(actionSenderService).sendAction(
+                order, new StateMachineEvent(order, StateMachineActions.EXECUTAR_SERVICO));
+    }
+
+    @Test
+    void managementExecutionConfirmationShouldSendInventoryUpdate() {
         String order = "order-123";
         StateMachineEvent event = new StateMachineEvent(
                 order,
@@ -98,7 +141,7 @@ class StateMachineUseCaseTest {
         );
 
         when(orderStateRepository.findState(order))
-                .thenReturn(StateMachineStates.ORCAMENTO_GERADO);
+                .thenReturn(StateMachineStates.AGUARDANDO_EXECUCAO);
 
         stateMachineUseCase.process(event);
 
@@ -109,32 +152,8 @@ class StateMachineUseCaseTest {
 
         verify(actionSenderService).sendAction(
                 order,
-                new StateMachineEvent(
-                        order,
-                        StateMachineActions.ATUALIZAR_ESTOQUE
-                )
+                new StateMachineEvent(order, StateMachineActions.ATUALIZAR_ESTOQUE)
         );
-    }
-
-    @Test
-    void shouldNotSendNextActionWhenStepIsFinal() {
-        String order = "order-123";
-        StateMachineEvent event = new StateMachineEvent(
-                order,
-                StateMachineActions.ATUALIZAR_ESTOQUE
-        );
-
-        when(orderStateRepository.findState(order))
-                .thenReturn(StateMachineStates.EXECUTAR_SERVICO);
-
-        stateMachineUseCase.process(event);
-
-        verify(orderStateRepository).updateState(
-                order,
-                StateMachineStates.ATUALIZAR_ESTOQUE
-        );
-
-        verifyNoInteractions(actionSenderService);
     }
 
     @Test

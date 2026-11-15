@@ -8,6 +8,9 @@ import lombok.RequiredArgsConstructor;
 public enum StateMachineActions {
 
     CRIAR_OS("os-management-queue"),
+    ORCAMENTO_DISPONIVEL("os-orchestrator-queue"),
+    ORCAMENTO_APROVADO("os-orchestrator-queue"),
+    PAGAMENTO_APROVADO("os-orchestrator-queue"),
     GERAR_ORCAMENTO("os-payment-queue"),
     GERAR_PAGAMENTO("os-payment-queue"),
     EXECUTAR_SERVICO("os-management-queue"),

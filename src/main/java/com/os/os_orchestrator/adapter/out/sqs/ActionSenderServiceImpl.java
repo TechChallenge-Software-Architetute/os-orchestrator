@@ -15,11 +15,14 @@ public class ActionSenderServiceImpl implements ActionSenderService {
     }
     @Override
     public void sendAction(String order, StateMachineEvent event) {
-        sqsTemplate.send(
-                event.action().getQueueName(),
-                MessageBuilder.withPayload(order)
-                        .setHeader("action", event.action().name())
-                        .build()
-        );
+        var message = MessageBuilder.withPayload(order)
+                .setHeader("action", event.action().name());
+        if (event.amount() != null) {
+            message.setHeader("amount", event.amount().toPlainString());
+        }
+        if (event.correlationId() != null && !event.correlationId().isBlank()) {
+            message.setHeader("correlationId", event.correlationId());
+        }
+        sqsTemplate.send(event.action().getQueueName(), message.build());
     }
 }

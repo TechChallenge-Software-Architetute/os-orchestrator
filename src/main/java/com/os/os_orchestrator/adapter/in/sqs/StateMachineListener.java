@@ -10,6 +10,7 @@ import org.springframework.messaging.handler.annotation.Header;
 import org.springframework.messaging.handler.annotation.Payload;
 import org.springframework.stereotype.Component;
 
+import java.math.BigDecimal;
 import java.util.UUID;
 
 @Slf4j
@@ -29,14 +30,19 @@ public class StateMachineListener {
      */
     @SqsListener("order-processing-queue")
     public void processOrder(@Payload String order,
-                             @Header("action") StateMachineActions action) {
+                             @Header("action") StateMachineActions action,
+                             @Header(name = "amount", required = false) String amount,
+                             @Header(name = "correlationId", required = false) String correlationId) {
 
         log.info("Evento recebido. {} - {}", order, action);
         MDC.put("order", order);
-        MDC.put("correlationId", UUID.randomUUID().toString());
+        String eventCorrelationId = correlationId == null || correlationId.isBlank()
+                ? UUID.randomUUID().toString() : correlationId;
+        MDC.put("correlationId", eventCorrelationId);
         log.info("Inicio do processamento do pedido: {} | Solicitacao de troca de estado: {}", order, action);
 
-        StateMachineEvent event = new StateMachineEvent(order, action);
+        BigDecimal orderAmount = amount == null || amount.isBlank() ? null : new BigDecimal(amount);
+        StateMachineEvent event = new StateMachineEvent(order, action, orderAmount, eventCorrelationId);
 
         stateMachineUseCase.process(event);
 
