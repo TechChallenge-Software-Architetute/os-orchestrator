@@ -375,6 +375,24 @@ jobs:
           aws eks update-kubeconfig --name "${CLUSTER_NAME}" --region "${AWS_REGION}"
           kubectl config current-context
 
+      # The Datadog Agent and Cluster Agent in this cluster are installed by the
+      # os-management pipeline. The admission controller injects the Java tracer
+      # only into pods created after the Cluster Agent is ready, so wait for it.
+      # Non-blocking: observability must not hold the deploy.
+      - name: Wait for the Datadog Cluster Agent
+        if: ${{ env.DD_API_KEY != '' }}
+        continue-on-error: true
+        run: |
+          if ! kubectl get deployment datadog-cluster-agent -n datadog >/dev/null 2>&1; then
+            echo "::warning::Datadog Agent is not installed in the cluster yet (the os-management deploy installs it). This pod will start without the tracer."
+            exit 1
+          fi
+          kubectl rollout status deployment/datadog-cluster-agent -n datadog --timeout=180s || {
+            echo "::warning::Datadog Cluster Agent is not ready; the pod may start without the tracer."
+            kubectl get pods -n datadog -o wide || true
+            exit 1
+          }
+
       - name: Apply Kubernetes manifests
         run: |
           case "${{ github.ref_name }}" in
@@ -425,3 +443,20 @@ jobs:
             kubectl get events -n os-orchestrator --sort-by=.lastTimestamp | tail -40
             exit 1
           }
+
+      # Warns (does not fail the deploy) when the tracer was not injected, instead
+      # of finding out from an empty APM in Datadog.
+      - name: Verify dd-java-agent injection
+        if: ${{ env.DD_API_KEY != '' }}
+        continue-on-error: true
+        run: |
+          kubectl get pods -n os-orchestrator -l app=os-orchestrator \
+            -o custom-columns='POD:.metadata.name,STATUS:.status.phase,INIT:.spec.initContainers[*].name'
+          INIT_CONTAINERS=$(kubectl get pods -n os-orchestrator -l app=os-orchestrator \
+            -o jsonpath='{.items[*].spec.initContainers[*].name}')
+          if echo "${INIT_CONTAINERS}" | grep -q "datadog-lib-java"; then
+            echo "dd-java-agent injected (init container datadog-lib-java-init present)."
+          else
+            echo "::warning::Pod without the datadog-lib-java-init init container: the tracer was not injected. Check the admission.datadoghq.com/enabled label in k8s/app.yaml and the pods in the datadog namespace."
+            exit 1
+          fi
