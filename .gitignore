@@ -49,3 +49,7 @@ override.tf.json
 *_override.tf.json
 # Saved plans.
 tfplan
+
+# Local Datadog test: API key file and the downloaded dd-java-agent.
+.env
+datadog/.cache/

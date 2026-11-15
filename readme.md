@@ -97,6 +97,60 @@ Os-management -> (CRIAR_OS)  -> orchestrator -> (GERAR_ORCAMENTO) -> payment -> 
 
 ---
 
+### Observabilidade (Datadog)
+
+O orquestrador roda no mesmo EKS do `os-management` e usa o Datadog Agent que o
+pipeline do `os-management` instala (Helm, namespace `datadog`). Não há Agent nem
+tracer neste repositório:
+
+- **Traces:** o admission controller do Cluster Agent injeta o `dd-java-agent` no
+  pod (init container `datadog-lib-java-init`). Para isso o pod precisa da label
+  `admission.datadoghq.com/enabled: "true"` e da annotation
+  `admission.datadoghq.com/java-lib.version` (`k8s/app.yaml`). O tracer instrumenta
+  o SQS e o DynamoDB e propaga o contexto no atributo `_datadog` das mensagens, o
+  que liga o trace da saga entre os serviços.
+- **Logs:** JSON (`LogstashEncoder`) no stdout, coletado pela annotation
+  `ad.datadoghq.com/os-orchestrator.logs`. O `DD_LOGS_INJECTION` põe
+  `dd.trace_id`/`dd.span_id` no MDC, então cada log abre o trace correspondente.
+- **Tags:** `DD_SERVICE=os-orchestrator`, `DD_VERSION` e `DD_ENV` no ConfigMap; a
+  pipeline mapeia a branch como no `os-management` (`main` → `production`,
+  `develop` → `homolog`) e aplica a label `tags.datadoghq.com/env`.
+- **Ordem do deploy:** a injeção só acontece em pods criados depois que o Cluster
+  Agent está pronto. O job `deploy-aws` espera por ele e, no fim, avisa se o pod
+  subiu sem o tracer. Se o Agent ainda não existir no cluster (o `os-management`
+  não fez deploy), o pod sobe sem tracer até o próximo deploy.
+
+Validação no EKS (`env:homolog`):
+
+```bash
+kubectl get pods -n os-orchestrator -l app=os-orchestrator \
+  -o jsonpath='{.items[*].spec.initContainers[*].name}'      # datadog-lib-java-init
+```
+
+No Datadog, filtre por `service:os-orchestrator env:homolog` em APM e Logs.
+
+#### Teste local (sem AWS)
+
+O script `datadog/test-local.sh` sobe o `docker-compose.yml` (LocalStack) junto
+com o `datadog/docker-compose.datadog.yml`, que acrescenta o orquestrador em
+container e um Datadog Agent. O script baixa o mesmo `dd-java-agent` que o
+admission controller injeta no EKS (em `datadog/.cache`, ignorado pelo git) e o
+container o carrega por `JAVA_TOOL_OPTIONS`.
+
+Requer Docker rodando e uma API key do Datadog (exportada ou no `.env`, que não vai
+para o git). No Git Bash, na raiz do repositório:
+
+```bash
+export DD_API_KEY=...          # ou DD_API_KEY=... no .env
+export DD_SITE=datadoghq.com   # padrão; troque se a conta for de outro site
+bash datadog/test-local.sh up          # tracer, build, LocalStack, Agent e orquestrador + verificações
+bash datadog/test-local.sh traffic 5   # 5 OS em CRIAR_OS -> GERAR_ORCAMENTO + links do Datadog
+bash datadog/test-local.sh down        # derruba tudo
+```
+
+No fim do `up` tem que aparecer `OK dd-java-agent carregado` e a API key como
+válida. Os dados chegam com `service:os-orchestrator env:developer`.
+
 ### Testes
 
 1. Criar a OS do pedido no os-oschestrator:

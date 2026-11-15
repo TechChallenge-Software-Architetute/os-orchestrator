@@ -19,6 +19,12 @@ spec:
     metadata:
       labels:
         app: os-orchestrator
+        # Lets the Datadog Cluster Agent admission controller mutate this pod. The
+        # chart (installed by os-management, k8s/datadog/values.yaml) runs with
+        # mutateUnlabelled: false, so without this label the java-lib.version
+        # annotation below is ignored and the tracer is never injected (no APM, no
+        # dd.trace_id in the logs, no trace across SQS).
+        admission.datadoghq.com/enabled: "true"
         tags.datadoghq.com/service: os-orchestrator
         tags.datadoghq.com/version: "1.0.0"
       annotations:
