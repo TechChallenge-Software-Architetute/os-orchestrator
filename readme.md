@@ -72,19 +72,20 @@ Preencha-a somente para produtores em outra conta.
 
 ---
 
-### Passos (OLD)
+### Passos
 
-1. Criar a OS do pedido
-   Action: CRIAR_OS
-   Step: CRIAR_OS -> OS_CRIADA
+| Mensagem recebida | De | Estado | Envia |
+|---|---|---|---|
+| `CRIAR_OS` | os-management | `CRIAR_OS` → `OS_CRIADA` | nada |
+| `ORCAMENTO_DISPONIVEL` | os-management (leva o valor) | `OS_CRIADA` → `GERAR_ORCAMENTO` | `GERAR_ORCAMENTO` ao os-payment |
+| `GERAR_ORCAMENTO` | os-payment | `GERAR_ORCAMENTO` → `ORCAMENTO_GERADO` | nada |
+| `PAGAMENTO_APROVADO` | os-payment | `ORCAMENTO_GERADO` → `PAGAMENTO_APROVADO` | `EXECUTAR_SERVICO` ao os-management |
+| `EXECUTAR_SERVICO` | os-management | `PAGAMENTO_APROVADO` → `EXECUTAR_SERVICO` | `ATUALIZAR_ESTOQUE` ao os-management |
+| `ATUALIZAR_ESTOQUE` | os-management | `EXECUTAR_SERVICO` → `ATUALIZAR_ESTOQUE` | nada (fim) |
+| `NEGAR_SERVICO` | os-payment | `GERAR_ORCAMENTO` ou `ORCAMENTO_GERADO` → `NEGAR_SERVICO` | `NEGAR_SERVICO` ao os-management |
 
-2. Gerar o orçamento do pedido
-   Action: GERAR_ORCAMENTO
-   Step: OS_CRIADA -> ORCAMENTO_GERADO
-
-3. Executar o serviço do pedido
-   Action: EXECUTAR_SERVICO
-   Step: ORCAMENTO_GERADO -> EXECUTAR_SERVICO
+O pagamento aprovado é a aprovação da OS: o cliente não aprova mais dentro da saga.
+Qualquer transição que não esteja na tabela leva o pedido para `ERRO`.
 
 ---
 
