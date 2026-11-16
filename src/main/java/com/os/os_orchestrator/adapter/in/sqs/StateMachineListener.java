@@ -24,11 +24,20 @@ public class StateMachineListener {
     }
 
     /**
-     * Inbound saga queue. The name is a property rather than a literal so the queue
-     * can be environment-suffixed (os-orchestrator-&lt;env&gt;-order-processing) while
-     * local development keeps using the LocalStack queue from init-aws.sh.
+     * Inbound saga queues. The names are properties rather than literals so the queues
+     * can be environment-suffixed while local development keeps using the LocalStack
+     * queues from init-aws.sh.
+     *
+     * <ul>
+     *   <li>{@code order-processing-queue} (os-orchestrator-&lt;env&gt;-order-processing):
+     *       commands from os-management.</li>
+     *   <li>{@code payment-status-queue} (os-payment-&lt;env&gt;-payment-status): replies from
+     *       os-payment. Same message format (order id in the body, {@code action},
+     *       {@code amount} and {@code correlationId} as attributes), so both queues
+     *       feed the same state machine.</li>
+     * </ul>
      */
-    @SqsListener("${app.aws.sqs.order-processing-queue}")
+    @SqsListener({"${app.aws.sqs.order-processing-queue}", "${app.aws.sqs.payment-status-queue}"})
     public void processOrder(@Payload String order,
                              @Header("action") StateMachineActions action,
                              @Header(name = "amount", required = false) String amount,

@@ -405,6 +405,7 @@ jobs:
           ORDER_PROCESSING_QUEUE="os-orchestrator-${{ github.ref_name }}-order-processing"
           MANAGEMENT_QUEUE="os-management-${{ github.ref_name }}-order-events"
           PAYMENT_QUEUE="os-payment-${{ github.ref_name }}-payment-requests"
+          PAYMENT_STATUS_QUEUE="os-payment-${{ github.ref_name }}-payment-status"
           ORDER_STATE_TABLE="os-orchestrator-${{ github.ref_name }}-order-state"
 
           kubectl apply -f k8s/namespace.yaml
@@ -413,6 +414,7 @@ jobs:
               -e "s|\${order_processing_queue}|${ORDER_PROCESSING_QUEUE}|g" \
               -e "s|\${management_queue}|${MANAGEMENT_QUEUE}|g" \
               -e "s|\${payment_queue}|${PAYMENT_QUEUE}|g" \
+              -e "s|\${payment_status_queue}|${PAYMENT_STATUS_QUEUE}|g" \
               -e "s|\${order_state_table}|${ORDER_STATE_TABLE}|g" \
               -e "s|\${datadog_env}|${DD_ENV_TAG}|g" \
               k8s/app-configmap.yaml.tpl | kubectl apply -f -

@@ -22,6 +22,7 @@ app:
       order-processing-queue: test-order-processing
       management-queue: test-management
       payment-queue: test-payment
+      payment-status-queue: test-payment-status
     dynamodb:
       order-state-table: test-order-state
       endpoint: http://localhost:4566

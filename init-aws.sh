@@ -6,6 +6,7 @@ for queue in \
   order-processing-queue \
   os-management-queue \
   os-payment-queue \
+  os-payment-status-queue \
   error-queue
 do
   awslocal sqs create-queue --queue-name "$queue"
