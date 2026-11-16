@@ -52,14 +52,14 @@ public enum StateMachineSteps {
             StateMachineActions.PAGAMENTO_APROVADO,
             ORCAMENTO_GERADO,
             PAGAMENTO_APROVADO,
-            null
+            StateMachineActions.EXECUTAR_SERVICO
     ),
 
     CLIENTE_APROVOU_ANTES_DO_PAGAMENTO_STEP(
             StateMachineActions.ORCAMENTO_APROVADO,
             ORCAMENTO_GERADO,
             ORCAMENTO_APROVADO,
-            null
+            StateMachineActions.EXECUTAR_SERVICO
     ),
 
     PAGAMENTO_APROVADO_APOS_CLIENTE_STEP(
