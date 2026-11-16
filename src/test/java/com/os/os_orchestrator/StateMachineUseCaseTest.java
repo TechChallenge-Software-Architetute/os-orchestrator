@@ -100,7 +100,10 @@ class StateMachineUseCaseTest {
                 StateMachineStates.PAGAMENTO_APROVADO
         );
 
-        verifyNoInteractions(actionSenderService);
+        verify(actionSenderService).sendAction(
+                order,
+                new StateMachineEvent(order, StateMachineActions.EXECUTAR_SERVICO)
+        );
     }
 
 
