@@ -15,6 +15,8 @@ data:
   # deploy pipeline builds them from the branch name instead of reading another
   # repo's Terraform state.
   ORDER_PROCESSING_QUEUE: "${order_processing_queue}"
+  MANAGEMENT_QUEUE: "${management_queue}"
+  PAYMENT_QUEUE: "${payment_queue}"
   ORDER_STATE_TABLE: "${order_state_table}"
   DD_ENV: "${datadog_env}"
   DD_SERVICE: "os-orchestrator"

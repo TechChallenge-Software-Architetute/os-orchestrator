@@ -20,6 +20,8 @@ app:
     region: us-east-1
     sqs:
       order-processing-queue: test-order-processing
+      management-queue: test-management
+      payment-queue: test-payment
     dynamodb:
       order-state-table: test-order-state
       endpoint: http://localhost:4566
