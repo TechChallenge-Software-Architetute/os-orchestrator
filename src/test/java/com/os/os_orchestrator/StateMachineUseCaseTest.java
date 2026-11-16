@@ -12,6 +12,9 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import java.math.BigDecimal;
+
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
@@ -177,6 +180,31 @@ class StateMachineUseCaseTest {
                 StateMachineStates.ERRO
         );
 
+        verifyNoInteractions(actionSenderService);
+    }
+
+    @Test
+    void forwardsAmountAndCorrelationIdToTheNextAction() {
+        String order = "order-123";
+        when(orderStateRepository.findState(order)).thenReturn(StateMachineStates.OS_CRIADA);
+
+        stateMachineUseCase.process(new StateMachineEvent(
+                order, StateMachineActions.ORCAMENTO_DISPONIVEL, new BigDecimal("179.80"), "corr-1"));
+
+        verify(actionSenderService).sendAction(order, new StateMachineEvent(
+                order, StateMachineActions.GERAR_ORCAMENTO, new BigDecimal("179.80"), "corr-1"));
+    }
+
+    @Test
+    void leavesTheStateUntouchedWhenTheLookupFailsForAnyOtherReason() {
+        String order = "order-123";
+        when(orderStateRepository.findState(order)).thenThrow(new RuntimeException("DynamoDB indisponivel"));
+
+        assertThrows(RuntimeException.class, () -> stateMachineUseCase.process(
+                new StateMachineEvent(order, StateMachineActions.ORCAMENTO_DISPONIVEL)));
+
+        verify(orderStateRepository, never()).createState(anyString(), any(StateMachineStates.class));
+        verify(orderStateRepository, never()).updateState(anyString(), any(StateMachineStates.class));
         verifyNoInteractions(actionSenderService);
     }
 }
