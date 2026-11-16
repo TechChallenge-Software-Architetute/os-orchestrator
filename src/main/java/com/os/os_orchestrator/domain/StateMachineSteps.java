@@ -55,39 +55,11 @@ public enum StateMachineSteps {
             StateMachineActions.EXECUTAR_SERVICO
     ),
 
-    CLIENTE_APROVOU_ANTES_DO_PAGAMENTO_STEP(
-            StateMachineActions.ORCAMENTO_APROVADO,
-            ORCAMENTO_GERADO,
-            ORCAMENTO_APROVADO,
-            StateMachineActions.EXECUTAR_SERVICO
-    ),
-
-    PAGAMENTO_APROVADO_APOS_CLIENTE_STEP(
-            StateMachineActions.PAGAMENTO_APROVADO,
-            ORCAMENTO_APROVADO,
-            AGUARDANDO_EXECUCAO,
-            StateMachineActions.EXECUTAR_SERVICO
-    ),
-
-    CLIENTE_APROVOU_APOS_PAGAMENTO_STEP(
-            StateMachineActions.ORCAMENTO_APROVADO,
-            PAGAMENTO_APROVADO,
-            AGUARDANDO_EXECUCAO,
-            StateMachineActions.EXECUTAR_SERVICO
-    ),
-
     EXECUTAR_SERVICO_STEP(
             StateMachineActions.EXECUTAR_SERVICO,
-            AGUARDANDO_EXECUCAO,
+            PAGAMENTO_APROVADO,
             EXECUTAR_SERVICO,
             StateMachineActions.ATUALIZAR_ESTOQUE
-    ),
-
-    CLIENTE_APROVACAO_DUPLICADA_STEP(
-            StateMachineActions.ORCAMENTO_APROVADO,
-            ORCAMENTO_APROVADO,
-            ORCAMENTO_APROVADO,
-            null
     ),
 
     PAGAMENTO_APROVACAO_DUPLICADA_STEP(
@@ -96,14 +68,6 @@ public enum StateMachineSteps {
             PAGAMENTO_APROVADO,
             null
     ),
-
-    CLIENTE_APROVACAO_DUPLICADA_AGUARDANDO_EXECUCAO_STEP(
-            StateMachineActions.ORCAMENTO_APROVADO,
-            AGUARDANDO_EXECUCAO,
-            AGUARDANDO_EXECUCAO,
-            null
-    ),
-
 
     NEGAR_SERVICO_STEP(
             StateMachineActions.NEGAR_SERVICO,
@@ -115,13 +79,6 @@ public enum StateMachineSteps {
     NEGAR_SERVICO_APOS_ORCAMENTO_STEP(
             StateMachineActions.NEGAR_SERVICO,
             ORCAMENTO_GERADO,
-            NEGAR_SERVICO,
-            StateMachineActions.NEGAR_SERVICO
-    ),
-
-    NEGAR_SERVICO_APOS_APROVACAO_STEP(
-            StateMachineActions.NEGAR_SERVICO,
-            ORCAMENTO_APROVADO,
             NEGAR_SERVICO,
             StateMachineActions.NEGAR_SERVICO
     ),
