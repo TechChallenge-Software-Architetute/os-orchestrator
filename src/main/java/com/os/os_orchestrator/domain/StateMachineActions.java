@@ -7,17 +7,27 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 public enum StateMachineActions {
 
-    CRIAR_OS("os-management-queue"),
-    ORCAMENTO_DISPONIVEL("os-orchestrator-queue"),
-    ORCAMENTO_APROVADO("os-orchestrator-queue"),
-    PAGAMENTO_APROVADO("os-orchestrator-queue"),
-    GERAR_ORCAMENTO("os-payment-queue"),
-    GERAR_PAGAMENTO("os-payment-queue"),
-    EXECUTAR_SERVICO("os-management-queue"),
-    ATUALIZAR_ESTOQUE("os-management-queue"),
-    NEGAR_SERVICO("os-management-queue"),
-    NEGAR_ESTOQUE("os-management-queue"),
-    ERRO("os-management-queue");
+    CRIAR_OS(Destination.MANAGEMENT),
+    ORCAMENTO_DISPONIVEL(Destination.ORCHESTRATOR),
+    ORCAMENTO_APROVADO(Destination.ORCHESTRATOR),
+    PAGAMENTO_APROVADO(Destination.ORCHESTRATOR),
+    GERAR_ORCAMENTO(Destination.PAYMENT),
+    GERAR_PAGAMENTO(Destination.PAYMENT),
+    EXECUTAR_SERVICO(Destination.MANAGEMENT),
+    ATUALIZAR_ESTOQUE(Destination.MANAGEMENT),
+    NEGAR_SERVICO(Destination.MANAGEMENT),
+    NEGAR_ESTOQUE(Destination.MANAGEMENT),
+    ERRO(Destination.MANAGEMENT);
 
-    private final String queueName;
+    /**
+     * Servico que recebe a acao. O nome da fila de cada um depende do ambiente
+     * (os-<servico>-<env>-<finalidade>) e vem da configuracao, nao daqui.
+     */
+    public enum Destination {
+        ORCHESTRATOR,
+        MANAGEMENT,
+        PAYMENT
+    }
+
+    private final Destination destination;
 }

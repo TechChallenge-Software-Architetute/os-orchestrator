@@ -20,3 +20,10 @@ spring:
       dynamodb:
         order-state-table: order-state
         endpoint: http://localhost:4566
+
+app:
+  aws:
+    sqs:
+      order-processing-queue: order-processing-queue
+      management-queue: os-management-queue
+      payment-queue: os-payment-queue

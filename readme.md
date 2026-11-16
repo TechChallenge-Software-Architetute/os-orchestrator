@@ -30,6 +30,8 @@ deploy):
 | Variável | Exemplo |
 |---|---|
 | `ORDER_PROCESSING_QUEUE` | `os-orchestrator-develop-order-processing` |
+| `MANAGEMENT_QUEUE` | `os-management-develop-order-events` |
+| `PAYMENT_QUEUE` | `os-payment-develop-payment-requests` |
 | `ORDER_STATE_TABLE` | `os-orchestrator-develop-order-state` |
 | `AWS_REGION` | `us-east-1` |
 

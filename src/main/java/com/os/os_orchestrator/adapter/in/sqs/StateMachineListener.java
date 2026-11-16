@@ -28,7 +28,7 @@ public class StateMachineListener {
      * can be environment-suffixed (os-orchestrator-&lt;env&gt;-order-processing) while
      * local development keeps using the LocalStack queue from init-aws.sh.
      */
-    @SqsListener("order-processing-queue")
+    @SqsListener("${app.aws.sqs.order-processing-queue}")
     public void processOrder(@Payload String order,
                              @Header("action") StateMachineActions action,
                              @Header(name = "amount", required = false) String amount,
