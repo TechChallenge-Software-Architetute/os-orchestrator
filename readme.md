@@ -79,9 +79,8 @@ Preencha-a somente para produtores em outra conta.
 | `CRIAR_OS` | os-management | `CRIAR_OS` → `OS_CRIADA` | nada |
 | `ORCAMENTO_DISPONIVEL` | os-management (leva o valor) | `OS_CRIADA` → `GERAR_ORCAMENTO` | `GERAR_ORCAMENTO` ao os-payment |
 | `GERAR_ORCAMENTO` | os-payment | `GERAR_ORCAMENTO` → `ORCAMENTO_GERADO` | nada |
-| `PAGAMENTO_APROVADO` | os-payment | `ORCAMENTO_GERADO` → `PAGAMENTO_APROVADO` | `EXECUTAR_SERVICO` ao os-management |
-| `EXECUTAR_SERVICO` | os-management | `PAGAMENTO_APROVADO` → `EXECUTAR_SERVICO` | `ATUALIZAR_ESTOQUE` ao os-management |
-| `ATUALIZAR_ESTOQUE` | os-management | `EXECUTAR_SERVICO` → `ATUALIZAR_ESTOQUE` | nada (fim) |
+| `PAGAMENTO_APROVADO` | os-payment | `ORCAMENTO_GERADO` → `PAGAMENTO_APROVADO` | `ATUALIZAR_ESTOQUE` ao os-management |
+| `ATUALIZAR_ESTOQUE` | os-management | `PAGAMENTO_APROVADO` → `ATUALIZAR_ESTOQUE` | nada (fim) |
 | `NEGAR_SERVICO` | os-payment | `GERAR_ORCAMENTO` ou `ORCAMENTO_GERADO` → `NEGAR_SERVICO` | `NEGAR_SERVICO` ao os-management |
 
 O pagamento aprovado é a aprovação da OS: o cliente não aprova mais dentro da saga.
