@@ -52,7 +52,7 @@ public enum StateMachineSteps {
             StateMachineActions.PAGAMENTO_APROVADO,
             ORCAMENTO_GERADO,
             PAGAMENTO_APROVADO,
-            StateMachineActions.EXECUTAR_SERVICO
+            StateMachineActions.ATUALIZAR_ESTOQUE
     ),
 
     EXECUTAR_SERVICO_STEP(
@@ -66,7 +66,7 @@ public enum StateMachineSteps {
             StateMachineActions.PAGAMENTO_APROVADO,
             PAGAMENTO_APROVADO,
             PAGAMENTO_APROVADO,
-            null
+            StateMachineActions.NEGAR_SERVICO
     ),
 
     NEGAR_SERVICO_STEP(
