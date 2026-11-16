@@ -29,6 +29,8 @@ app:
       # os-payment-<env>-payment-requests.
       management-queue: ${MANAGEMENT_QUEUE}
       payment-queue: ${PAYMENT_QUEUE}
+      # Respostas do os-payment: os-payment-<env>-payment-status.
+      payment-status-queue: ${PAYMENT_STATUS_QUEUE}
     dynamodb:
       # Saga state table: os-orchestrator-<env>-order-state.
       order-state-table: ${ORDER_STATE_TABLE:order-state}

@@ -17,6 +17,7 @@ data:
   ORDER_PROCESSING_QUEUE: "${order_processing_queue}"
   MANAGEMENT_QUEUE: "${management_queue}"
   PAYMENT_QUEUE: "${payment_queue}"
+  PAYMENT_STATUS_QUEUE: "${payment_status_queue}"
   ORDER_STATE_TABLE: "${order_state_table}"
   DD_ENV: "${datadog_env}"
   DD_SERVICE: "os-orchestrator"
