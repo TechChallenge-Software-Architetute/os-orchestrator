@@ -83,7 +83,7 @@ class StateMachineUseCaseTest {
     }
 
     @Test
-    void paymentApprovalAloneMustWaitForCustomerApproval() {
+    void paymentApprovalReleasesTheServiceExecution() {
         String order = "order-123";
         StateMachineEvent event = new StateMachineEvent(
                 order,
@@ -106,33 +106,14 @@ class StateMachineUseCaseTest {
         );
     }
 
-
     @Test
-    void customerApprovalAfterPaymentApprovalStartsExecution() {
+    void duplicatedPaymentApprovalDoesNotReleaseTheExecutionTwice() {
         String order = "order-123";
-        StateMachineEvent event = new StateMachineEvent(order, StateMachineActions.ORCAMENTO_APROVADO);
-
         when(orderStateRepository.findState(order)).thenReturn(StateMachineStates.PAGAMENTO_APROVADO);
 
-        stateMachineUseCase.process(event);
+        stateMachineUseCase.process(new StateMachineEvent(order, StateMachineActions.PAGAMENTO_APROVADO));
 
-        verify(orderStateRepository).updateState(order, StateMachineStates.AGUARDANDO_EXECUCAO);
-        verify(actionSenderService).sendAction(
-                order, new StateMachineEvent(order, StateMachineActions.EXECUTAR_SERVICO));
-    }
-
-    @Test
-    void paymentApprovalAfterCustomerApprovalStartsExecution() {
-        String order = "order-123";
-        StateMachineEvent event = new StateMachineEvent(order, StateMachineActions.PAGAMENTO_APROVADO);
-
-        when(orderStateRepository.findState(order)).thenReturn(StateMachineStates.ORCAMENTO_APROVADO);
-
-        stateMachineUseCase.process(event);
-
-        verify(orderStateRepository).updateState(order, StateMachineStates.AGUARDANDO_EXECUCAO);
-        verify(actionSenderService).sendAction(
-                order, new StateMachineEvent(order, StateMachineActions.EXECUTAR_SERVICO));
+        verifyNoInteractions(actionSenderService);
     }
 
     @Test
@@ -144,7 +125,7 @@ class StateMachineUseCaseTest {
         );
 
         when(orderStateRepository.findState(order))
-                .thenReturn(StateMachineStates.AGUARDANDO_EXECUCAO);
+                .thenReturn(StateMachineStates.PAGAMENTO_APROVADO);
 
         stateMachineUseCase.process(event);
 
