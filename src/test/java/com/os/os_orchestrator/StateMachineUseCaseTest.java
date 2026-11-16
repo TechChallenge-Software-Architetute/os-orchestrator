@@ -86,7 +86,7 @@ class StateMachineUseCaseTest {
     }
 
     @Test
-    void paymentApprovalReleasesTheServiceExecution() {
+    void paymentApprovalSendsTheStockUpdate() {
         String order = "order-123";
         StateMachineEvent event = new StateMachineEvent(
                 order,
@@ -105,12 +105,12 @@ class StateMachineUseCaseTest {
 
         verify(actionSenderService).sendAction(
                 order,
-                new StateMachineEvent(order, StateMachineActions.EXECUTAR_SERVICO)
+                new StateMachineEvent(order, StateMachineActions.ATUALIZAR_ESTOQUE)
         );
     }
 
     @Test
-    void duplicatedPaymentApprovalDoesNotReleaseTheExecutionTwice() {
+    void duplicatedPaymentApprovalDoesNotSendTheStockUpdateTwice() {
         String order = "order-123";
         when(orderStateRepository.findState(order)).thenReturn(StateMachineStates.PAGAMENTO_APROVADO);
 
@@ -120,27 +120,14 @@ class StateMachineUseCaseTest {
     }
 
     @Test
-    void managementExecutionConfirmationShouldSendInventoryUpdate() {
+    void stockUpdateConfirmationFinishesTheSaga() {
         String order = "order-123";
-        StateMachineEvent event = new StateMachineEvent(
-                order,
-                StateMachineActions.EXECUTAR_SERVICO
-        );
+        when(orderStateRepository.findState(order)).thenReturn(StateMachineStates.PAGAMENTO_APROVADO);
 
-        when(orderStateRepository.findState(order))
-                .thenReturn(StateMachineStates.PAGAMENTO_APROVADO);
+        stateMachineUseCase.process(new StateMachineEvent(order, StateMachineActions.ATUALIZAR_ESTOQUE));
 
-        stateMachineUseCase.process(event);
-
-        verify(orderStateRepository).updateState(
-                order,
-                StateMachineStates.EXECUTAR_SERVICO
-        );
-
-        verify(actionSenderService).sendAction(
-                order,
-                new StateMachineEvent(order, StateMachineActions.ATUALIZAR_ESTOQUE)
-        );
+        verify(orderStateRepository).updateState(order, StateMachineStates.ATUALIZAR_ESTOQUE);
+        verifyNoInteractions(actionSenderService);
     }
 
     @Test
