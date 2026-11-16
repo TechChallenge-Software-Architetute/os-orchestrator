@@ -1,0 +1,5 @@
+/mvnw text eol=lf
+*.cmd text eol=crlf
+# Shell scripts keep LF on every checkout: init-aws.sh runs inside LocalStack and
+# datadog/test-local.sh in bash, and both break with CRLF ("$'\r': command not found").
+*.sh text eol=lf

@@ -1,0 +1,59 @@
+# Datadog no ambiente local do os-orchestrator. Soma-se ao docker-compose.yml da raiz
+# (que sobe só o LocalStack) e acrescenta o orquestrador em container e um Datadog
+# Agent. Use pelo script, que também baixa o tracer:
+#
+#   bash datadog/test-local.sh up
+#
+# No EKS o tracer é injetado pelo admission controller do Datadog e a imagem não tem
+# o jar. Aqui o script baixa o mesmo dd-java-agent para datadog/.cache (ignorado
+# pelo git) e ele é montado no container, que o carrega por JAVA_TOOL_OPTIONS.
+
+services:
+  datadog-agent:
+    image: public.ecr.aws/datadog/agent:latest
+    environment:
+      DD_API_KEY: ${DD_API_KEY:-}
+      DD_SITE: ${DD_SITE:-datadoghq.com}
+      DD_ENV: ${DD_ENV:-developer}
+      # No Docker Desktop o Agent nem sempre descobre o hostname sozinho.
+      DD_HOSTNAME: ${DD_HOSTNAME:-os-orchestrator-local}
+      DD_APM_ENABLED: "true"
+      DD_APM_NON_LOCAL_TRAFFIC: "true"
+      DD_LOGS_ENABLED: "true"
+      # Coleta só os containers com a label com.datadoghq.ad.logs (o orquestrador).
+      DD_LOGS_CONFIG_CONTAINER_COLLECT_ALL: "false"
+      DD_PROCESS_AGENT_ENABLED: "false"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - /proc/:/host/proc/:ro
+      - /sys/fs/cgroup/:/host/sys/fs/cgroup:ro
+      - /var/lib/docker/containers:/var/lib/docker/containers:ro
+
+  orchestrator:
+    build: .
+    image: os-orchestrator:dev
+    depends_on:
+      localstack: {condition: service_started}
+      datadog-agent: {condition: service_started}
+    environment:
+      # Perfil local: SQS e DynamoDB no LocalStack desta rede.
+      SPRING_PROFILES_ACTIVE: local
+      AWS_REGION: us-east-1
+      AWS_ACCESS_KEY_ID: test
+      AWS_SECRET_ACCESS_KEY: test
+      AWS_ENDPOINT: http://localstack:4566
+      DYNAMODB_ENDPOINT: http://localstack:4566
+      # Tracer (o mesmo jar que o admission controller injeta no EKS).
+      JAVA_TOOL_OPTIONS: -javaagent:/datadog-lib/dd-java-agent.jar
+      DD_AGENT_HOST: datadog-agent
+      DD_SERVICE: os-orchestrator
+      DD_ENV: ${DD_ENV:-developer}
+      DD_VERSION: ${DD_VERSION:-local}
+      DD_LOGS_INJECTION: "true"
+    volumes:
+      - ./datadog/.cache/dd-java-agent.jar:/datadog-lib/dd-java-agent.jar:ro
+    labels:
+      com.datadoghq.ad.logs: '[{"source":"java","service":"os-orchestrator"}]'
+      com.datadoghq.tags.service: os-orchestrator
+      com.datadoghq.tags.env: ${DD_ENV:-developer}
+      com.datadoghq.tags.version: ${DD_VERSION:-local}
